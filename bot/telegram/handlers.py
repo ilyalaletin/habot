@@ -19,6 +19,8 @@ from bot.telegram.keyboards import (
     notification_entities_keyboard,
     notification_rules_keyboard,
     operator_keyboard,
+    rules_list_keyboard,
+    menu_keyboard,
 )
 
 
@@ -68,6 +70,12 @@ def make_router(
     # ==================== Device commands ====================
 
     @router.message(CommandStart())
+    @router.message(Command("menu"))
+    async def cmd_menu(message: Message) -> None:
+        if not _check_chat(message):
+            return
+        await message.answer("Menu:", reply_markup=menu_keyboard())
+
     @router.message(Command("rooms"))
     async def cmd_rooms(message: Message) -> None:
         if not _check_chat(message):
@@ -89,8 +97,8 @@ def make_router(
         chunk = []
         chunk_len = 0
         for room in rooms:
-            devices = registry.get_devices(room)
-            part = format_room_summary(room, devices)
+            groups = registry.get_device_groups(room)
+            part = format_room_summary(room, groups=groups)
             if chunk and chunk_len + len(part) + 2 > 4000:
                 await message.answer("\n\n".join(chunk), parse_mode="HTML")
                 chunk = []
@@ -99,6 +107,12 @@ def make_router(
             chunk_len += len(part) + 2
         if chunk:
             await message.answer("\n\n".join(chunk), parse_mode="HTML")
+
+    @router.message(Command("rules"))
+    async def cmd_rules(message: Message) -> None:
+        if not _check_chat(message):
+            return
+        await _show_all_rules(message)
 
     @router.message(Command("room"))
     async def cmd_room(message: Message) -> None:
@@ -119,7 +133,8 @@ def make_router(
         if not devices:
             await message.answer(f"Room '{room_name}' not found.")
             return
-        text = format_room_summary(room_name, devices)
+        groups = registry.get_device_groups(room_name)
+        text = format_room_summary(room_name, groups=groups)
         await message.answer(text, parse_mode="HTML", reply_markup=room_devices_keyboard(room_name, devices))
 
     @router.message(Command("on"))
@@ -173,7 +188,8 @@ def make_router(
     async def cb_room(callback: CallbackQuery) -> None:
         room_name = callback.data.removeprefix("room:")
         devices = registry.get_devices(room_name)
-        text = format_room_summary(room_name, devices)
+        groups = registry.get_device_groups(room_name)
+        text = format_room_summary(room_name, groups=groups)
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=room_devices_keyboard(room_name, devices))
         await callback.answer()
 
@@ -222,6 +238,49 @@ def make_router(
         rooms = registry.get_rooms()
         await callback.message.edit_text("Rooms:", reply_markup=rooms_keyboard(rooms))
         await callback.answer()
+
+    # ==================== Menu callbacks ====================
+
+    @router.callback_query(F.data.startswith("menu:"))
+    async def cb_menu(callback: CallbackQuery) -> None:
+        cmd = callback.data.removeprefix("menu:")
+        if cmd == "rooms":
+            rooms = registry.get_rooms()
+            await callback.message.edit_text("Rooms:", reply_markup=rooms_keyboard(rooms))
+        elif cmd == "status":
+            await callback.message.delete()
+            rooms = registry.get_rooms()
+            chunk = []
+            chunk_len = 0
+            for room in rooms:
+                groups = registry.get_device_groups(room)
+                part = format_room_summary(room, groups=groups)
+                if chunk and chunk_len + len(part) + 2 > 4000:
+                    await callback.message.answer("\n\n".join(chunk), parse_mode="HTML")
+                    chunk = []
+                    chunk_len = 0
+                chunk.append(part)
+                chunk_len += len(part) + 2
+            if chunk:
+                await callback.message.answer("\n\n".join(chunk), parse_mode="HTML")
+        elif cmd == "rules":
+            await _show_all_rules(callback.message, edit=True)
+        elif cmd == "settings":
+            await callback.message.edit_text("Settings:", reply_markup=settings_root_keyboard())
+        elif cmd == "help":
+            await callback.message.edit_text(format_help(), parse_mode="HTML")
+        await callback.answer()
+
+    # ==================== Rules ====================
+
+    @router.callback_query(F.data.startswith("rl:x:"))
+    async def cb_rules_delete(callback: CallbackQuery) -> None:
+        rule_id = int(callback.data.removeprefix("rl:x:"))
+        await storage.delete_rule(rule_id)
+        if engine:
+            engine.on_rule_deleted(rule_id)
+        await callback.answer("Rule deleted")
+        await _show_all_rules(callback.message, edit=True)
 
     # ==================== Settings command ====================
 
@@ -524,6 +583,19 @@ def make_router(
             parse_mode="HTML",
             reply_markup=notification_rules_keyboard(rules, ri, gi, ei),
         )
+
+    async def _show_all_rules(target, edit: bool = False) -> None:
+        rules = await storage.get_all_rules()
+        entity_names = {}
+        for r in rules:
+            device = registry.get_device(r["entity_id"])
+            entity_names[r["entity_id"]] = device.name if device else r["entity_id"]
+        kb = rules_list_keyboard(rules, entity_names)
+        text = "<b>Notification rules:</b>" if rules else "No notification rules."
+        if edit:
+            await target.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        else:
+            await target.answer(text, parse_mode="HTML", reply_markup=kb)
 
     async def _handle_device_command(message: Message, name: str, state: str) -> None:
         matches = registry.find_devices(name)

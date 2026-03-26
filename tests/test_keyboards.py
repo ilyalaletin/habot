@@ -8,6 +8,8 @@ from bot.telegram.keyboards import (
     notification_entities_keyboard,
     notification_rules_keyboard,
     operator_keyboard,
+    rules_list_keyboard,
+    menu_keyboard,
 )
 
 def test_rooms_keyboard():
@@ -105,6 +107,35 @@ def test_notification_rules_keyboard():
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "sn:x:1:0:1:2" in callbacks
     assert "sn:a:0:1:2" in callbacks
+
+
+def test_menu_keyboard():
+    kb = menu_keyboard()
+    callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "menu:rooms" in callbacks
+    assert "menu:status" in callbacks
+    assert "menu:rules" in callbacks
+    assert "menu:settings" in callbacks
+    assert "menu:help" in callbacks
+
+
+def test_rules_list_keyboard():
+    rules = [
+        {"id": 1, "entity_id": "ha:sensor.temp", "operator": ">", "value": "30", "hold_minutes": 5},
+        {"id": 2, "entity_id": "ha:sensor.hum", "operator": "<", "value": "20", "hold_minutes": 0},
+    ]
+    names = {"ha:sensor.temp": "Temperature", "ha:sensor.hum": "Humidity"}
+    kb = rules_list_keyboard(rules, names)
+    callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "rl:x:1" in callbacks
+    assert "rl:x:2" in callbacks
+    texts = [btn.text for row in kb.inline_keyboard for btn in row]
+    assert any("Temperature" in t and ">" in t and "30" in t for t in texts)
+
+
+def test_rules_list_keyboard_empty():
+    kb = rules_list_keyboard([], {})
+    assert kb is None
 
 
 def test_operator_keyboard():

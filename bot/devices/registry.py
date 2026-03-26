@@ -140,6 +140,16 @@ class DeviceRegistry:
             result.append((gid, group_names[gid], groups[gid]))
         return result
 
+    def get_device_groups(self, room: str) -> list[tuple[str, str, list[Device]]]:
+        """Like get_all_device_groups but filters out hidden entities."""
+        all_groups = self.get_all_device_groups(room)
+        result = []
+        for gid, gname, entities in all_groups:
+            visible = [e for e in entities if e.id not in self._hidden]
+            if visible:
+                result.append((gid, gname, visible))
+        return result
+
     def get_device(self, device_id: str) -> Device | None:
         return self._devices.get(device_id)
 

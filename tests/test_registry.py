@@ -181,3 +181,24 @@ async def test_get_all_device_groups_wb(registry: DeviceRegistry):
 async def test_get_all_device_groups_empty_room(registry: DeviceRegistry):
     groups = registry.get_all_device_groups("Nonexistent")
     assert groups == []
+
+
+@pytest.mark.asyncio
+async def test_get_device_groups_filters_hidden(ha_client, wb_devices, wb_publish):
+    reg = DeviceRegistry(ha_client, wb_devices, wb_publish=wb_publish, hidden={"ha:sensor.kitchen_temp"})
+    await reg.load()
+    groups = reg.get_device_groups("Kitchen")
+    # dev1 group should have only 1 entity (light), temp is hidden
+    ha_groups = [g for g in groups if g[0] == "dev1"]
+    assert len(ha_groups) == 1
+    _, _, entities = ha_groups[0]
+    assert len(entities) == 1
+    assert entities[0].id == "ha:light.kitchen"
+
+
+@pytest.mark.asyncio
+async def test_get_device_groups_skips_fully_hidden_group(ha_client, wb_devices, wb_publish):
+    reg = DeviceRegistry(ha_client, wb_devices, wb_publish=wb_publish, hidden={"ha:light.kitchen", "ha:sensor.kitchen_temp"})
+    await reg.load()
+    groups = reg.get_device_groups("Kitchen")
+    assert groups == []

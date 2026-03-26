@@ -30,6 +30,33 @@ def test_format_room_summary():
     assert "Temp" in text
     assert "23.5" in text
 
+def test_format_room_summary_with_groups():
+    groups = [
+        ("dev1", "Climate Sensor", [_sensor(name="Temperature"), _sensor(name="Humidity", state="45", unit="%")]),
+        ("dev2", "Ceiling Light", [_switch(name="Light")]),
+    ]
+    text = format_room_summary("Kitchen", groups=groups)
+    assert "<b>Kitchen</b>" in text
+    assert "<b>Climate Sensor</b>" in text
+    assert "<b>Ceiling Light</b>" in text
+    assert "Temperature" in text
+    assert "Humidity" in text
+    assert "Light" in text
+
+
+def test_format_room_summary_solo_no_header():
+    groups = [
+        ("_solo:ha:sensor.z", "Temperature", [_sensor(name="Temperature")]),
+    ]
+    text = format_room_summary("Kitchen", groups=groups)
+    assert "<b>Kitchen</b>" in text
+    assert "Temperature" in text
+    # Solo entities should NOT have a bold device header
+    lines = text.split("\n")
+    bold_lines = [l for l in lines if "<b>" in l]
+    assert len(bold_lines) == 1  # only room name
+
+
 def test_format_notification():
     text = format_notification("light.kitchen", "Kitchen Light", "off", "on")
     assert "Kitchen Light" in text
@@ -42,4 +69,6 @@ def test_format_help():
     assert "/off" in text
     assert "/settings" in text
     assert "/cancel" in text
+    assert "/menu" in text
+    assert "/rules" in text
     assert "/notifications" not in text

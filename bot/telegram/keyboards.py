@@ -111,6 +111,36 @@ def notification_rules_keyboard(
     return builder.as_markup()
 
 
+def menu_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    items = [
+        ("Rooms", "menu:rooms"),
+        ("Status", "menu:status"),
+        ("Rules", "menu:rules"),
+        ("Settings", "menu:settings"),
+        ("Help", "menu:help"),
+    ]
+    for text, cb in items:
+        builder.button(text=text, callback_data=cb)
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def rules_list_keyboard(
+    rules: list[dict], entity_names: dict[str, str]
+) -> InlineKeyboardMarkup | None:
+    if not rules:
+        return None
+    builder = InlineKeyboardBuilder()
+    for rule in rules:
+        name = entity_names.get(rule["entity_id"], rule["entity_id"])
+        hold = f", hold {rule['hold_minutes']}m" if rule["hold_minutes"] > 0 else ""
+        label = f"[x] {name} {rule['operator']} {rule['value']}{hold}"
+        builder.button(text=label, callback_data=f"rl:x:{rule['id']}")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def operator_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for op in (">", "<", ">=", "<=", "="):
