@@ -17,7 +17,8 @@ def test_rooms_keyboard():
     buttons = [btn.text for row in kb.inline_keyboard for btn in row]
     assert "Kitchen" in buttons
     assert "Bedroom" in buttons
-    assert len(kb.inline_keyboard) >= 1
+    callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "bk:menu" in callbacks
 
 def test_room_devices_keyboard():
     devices = [
@@ -34,8 +35,10 @@ def test_room_devices_keyboard():
 def test_switch_control_keyboard():
     kb = switch_control_keyboard("ha:light.k", "Kitchen")
     texts = [btn.text for row in kb.inline_keyboard for btn in row]
-    assert any("VKL" in t.upper() or "ON" in t.upper() for t in texts)
-    assert any("VYKL" in t.upper() or "OFF" in t.upper() for t in texts)
+    assert any("Вкл" in t for t in texts)
+    assert any("Выкл" in t for t in texts)
+    assert any("🟢" in t for t in texts)
+    assert any("🔴" in t for t in texts)
 
 def test_dimmer_control_keyboard():
     kb = dimmer_control_keyboard("ha:light.d", "Kitchen")
@@ -48,11 +51,10 @@ def test_dimmer_control_keyboard():
 
 def test_settings_root_keyboard():
     kb = settings_root_keyboard()
-    texts = [btn.text for row in kb.inline_keyboard for btn in row]
-    assert len(texts) == 2
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "s:vis" in callbacks
     assert "s:ntf" in callbacks
+    assert "bk:menu" in callbacks
 
 
 def test_settings_rooms_keyboard():
@@ -82,8 +84,8 @@ def test_visibility_entities_keyboard():
     hidden = {"ha:sensor.voltage"}
     kb = visibility_entities_keyboard(devices, hidden, 0, 1)
     texts = [btn.text for row in kb.inline_keyboard for btn in row]
-    assert any("[x]" in t and "Temperature" in t for t in texts)
-    assert any("[ ]" in t and "Voltage" in t for t in texts)
+    assert any("✅" in t and "Temperature" in t for t in texts)
+    assert any("⬜" in t and "Voltage" in t for t in texts)
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "sv:t:0:1:0" in callbacks
     assert "sv:t:0:1:1" in callbacks
@@ -117,6 +119,9 @@ def test_menu_keyboard():
     assert "menu:rules" in callbacks
     assert "menu:settings" in callbacks
     assert "menu:help" in callbacks
+    texts = [btn.text for row in kb.inline_keyboard for btn in row]
+    assert any("🏠" in t for t in texts)
+    assert any("⚙️" in t for t in texts)
 
 
 def test_rules_list_keyboard():
@@ -129,8 +134,10 @@ def test_rules_list_keyboard():
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "rl:x:1" in callbacks
     assert "rl:x:2" in callbacks
+    assert "bk:menu" in callbacks
     texts = [btn.text for row in kb.inline_keyboard for btn in row]
     assert any("Temperature" in t and ">" in t and "30" in t for t in texts)
+    assert any("❌" in t for t in texts)
 
 
 def test_rules_list_keyboard_empty():
@@ -146,6 +153,6 @@ def test_operator_keyboard():
     assert ">=" in texts
     assert "<=" in texts
     assert "=" in texts
-    assert "Cancel" in texts
+    assert any("Отмена" in t for t in texts)
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
     assert "sn:cancel" in callbacks

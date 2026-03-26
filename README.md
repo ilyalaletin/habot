@@ -1,43 +1,45 @@
 # habot
 
-Telegram bot for smart home control via Home Assistant and Wirenboard.
+Telegram-бот для управления умным домом через Home Assistant и Wirenboard.
 
-## Features
+## Возможности
 
-- Browse devices by room with inline buttons
-- Control switches and dimmers
-- Quick commands: /on, /off, /set, /status
-- Rule-based notifications with thresholds (>, <, >=, <=, =) and hold timers
-- Per-entity visibility toggles (hide noisy sensors from status)
-- Wirenboard MQTT devices alongside HA devices
+- 🏠 Просмотр устройств по комнатам с inline-кнопками
+- 💡 Управление выключателями и диммерами
+- ⚡ Быстрые команды: /on, /off, /set, /status
+- 🔔 Правила уведомлений с порогами (>, <, >=, <=, =) и таймерами удержания
+- 👁 Настройки видимости (скрытие шумных сенсоров из статуса)
+- 📊 Группировка сущностей по устройствам в выводе статуса
+- 📋 Главное меню с inline-навигацией (/menu, /start)
+- Wirenboard MQTT-устройства наравне с HA
 
-## Quick Start
+## Быстрый старт
 
 1. Copy config:
    ```bash
    cp config.example.yaml config.yaml
    ```
 
-2. Edit `config.yaml` with your settings (Telegram token, HA URL/token, MQTT host).
+2. Отредактируйте `config.yaml` (токен Telegram, URL/токен HA, хост MQTT).
 
-3. Create `.env` file:
+3. Создайте `.env` файл:
    ```
    TELEGRAM_TOKEN=your_bot_token
    HA_TOKEN=your_ha_long_lived_token
    ```
 
-4. Run:
+4. Запуск:
    ```bash
    docker compose up -d
    ```
 
-## Integration with Existing Docker Compose
+## Интеграция с существующим Docker Compose
 
-If you already have Home Assistant and Wirenboard running in Docker, add habot to the same stack.
+Если Home Assistant и Wirenboard уже работают в Docker, добавьте habot в тот же стек.
 
-### Option A: Add to existing docker-compose.yml
+### Вариант А: Добавить в существующий docker-compose.yml
 
-Add the `habot` service to your existing `docker-compose.yml`:
+Добавьте сервис `habot` в ваш `docker-compose.yml`:
 
 ```yaml
 services:
@@ -59,7 +61,7 @@ volumes:
   habot-data:
 ```
 
-In `config.yaml`, use Docker service names as hosts:
+В `config.yaml` используйте имена Docker-сервисов в качестве хостов:
 
 ```yaml
 homeassistant:
@@ -68,9 +70,9 @@ mqtt:
   host: "wirenboard"  # or your MQTT broker service name
 ```
 
-### Option B: Separate compose with shared network
+### Вариант Б: Отдельный compose с общей сетью
 
-If habot has its own `docker-compose.yml`, connect it to the existing network:
+Если у habot свой `docker-compose.yml`, подключите его к существующей сети:
 
 ```yaml
 services:
@@ -95,31 +97,33 @@ networks:
     name: homeassistant_default  # name of your HA network (check with: docker network ls)
 ```
 
-Find your HA network name:
+Найдите имя сети HA:
 ```bash
 docker network ls | grep home
 ```
 
-## Configuration
+## Конфигурация
 
-See `config.example.yaml` for all options. Environment variables `TELEGRAM_TOKEN` and `HA_TOKEN` override YAML values.
+См. `config.example.yaml` для всех параметров. Переменные окружения `TELEGRAM_TOKEN` и `HA_TOKEN` переопределяют значения из YAML.
 
-## Commands
+## Команды
 
-| Command | Description |
-|---------|-------------|
-| /help | List all commands |
-| /rooms | Browse rooms |
-| /room <name> | Room summary |
-| /on <name> | Turn on device |
-| /off <name> | Turn off device |
-| /set <name> <value> | Set value (dimmer: 0-100) |
-| /status | Full summary |
-| /settings | Visibility and notification rules |
-| /cancel | Cancel current operation |
+| Команда | Описание |
+|---------|----------|
+| /menu | 📋 Главное меню |
+| /help | ❓ Список всех команд |
+| /rooms | 🏠 Список комнат |
+| /room <имя> | Статус комнаты |
+| /on <имя> | Включить устройство |
+| /off <имя> | Выключить устройство |
+| /set <имя> <значение> | Установить значение (диммер: 0-100) |
+| /status | 📊 Полный статус всех комнат |
+| /rules | 📋 Правила уведомлений |
+| /settings | ⚙️ Видимость и правила уведомлений |
+| /cancel | Отменить текущую операцию |
 
-## Supported Device Types (v1)
+## Поддерживаемые типы устройств
 
-- **switch** -- on/off control
-- **dimmer** -- brightness 0-100%
-- **sensor** -- read-only (temperature, humidity, etc.)
+- **switch** — вкл/выкл
+- **dimmer** — яркость 0-100%
+- **sensor** — только чтение (температура, влажность и т.д.)

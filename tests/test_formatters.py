@@ -15,12 +15,23 @@ def _sensor(name="Temp", state="23.5", room="Kitchen", unit="C"):
 def test_format_switch_on():
     text = format_device_state(_switch(state="on"))
     assert "Light" in text
-    assert "ON" in text.upper() or "VKL" in text.upper()
+    assert "🟢" in text
+
+def test_format_switch_off():
+    text = format_device_state(_switch(state="off"))
+    assert "Light" in text
+    assert "🔴" in text
+
+def test_format_switch_unknown():
+    text = format_device_state(_switch(state="unavailable"))
+    assert "Light" in text
+    assert "⚪" in text
 
 def test_format_sensor():
     text = format_device_state(_sensor())
     assert "23.5" in text
     assert "C" in text
+    assert "📊" in text
 
 def test_format_room_summary():
     devices = [_switch(), _sensor(), _dimmer()]
@@ -60,6 +71,7 @@ def test_format_room_summary_solo_no_header():
 def test_format_notification():
     text = format_notification("light.kitchen", "Kitchen Light", "off", "on")
     assert "Kitchen Light" in text
+    assert "🔔" in text
 
 def test_format_help():
     text = format_help()
@@ -71,4 +83,4 @@ def test_format_help():
     assert "/cancel" in text
     assert "/menu" in text
     assert "/rules" in text
-    assert "/notifications" not in text
+    assert "Список комнат" in text
