@@ -1,6 +1,6 @@
 services:
   habot:
-    image: ghcr.io/ilyalaletin/habot:master
+    image: ghcr.io/ilyalaletin/habot:latest
     build: .
     restart: unless-stopped
     volumes:

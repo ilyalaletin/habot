@@ -38,7 +38,7 @@ Telegram-бот для управления умным домом через Hom
 Готовый образ публикуется в GitHub Container Registry при каждом пуше в master.
 
 ```
-ghcr.io/ilyalaletin/habot:master
+ghcr.io/ilyalaletin/habot:latest
 ```
 
 ### Использование в docker-compose.yml
@@ -46,7 +46,7 @@ ghcr.io/ilyalaletin/habot:master
 ```yaml
 services:
   habot:
-    image: ghcr.io/ilyalaletin/habot:master
+    image: ghcr.io/ilyalaletin/habot:latest
     restart: unless-stopped
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -72,7 +72,7 @@ docker compose pull && docker compose up -d
 ```yaml
 services:
   habot:
-    image: ghcr.io/ilyalaletin/habot:master
+    image: ghcr.io/ilyalaletin/habot:latest
     restart: unless-stopped
     volumes:
       - ./config.yaml:/app/config.yaml:ro
