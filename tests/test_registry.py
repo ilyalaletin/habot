@@ -18,7 +18,7 @@ def ha_client():
         {"entity_id": "sensor.kitchen_temp", "area_id": None, "device_id": "dev1"},
     ]
     mock.get_device_registry.return_value = [
-        {"id": "dev1", "area_id": "kitchen"},
+        {"id": "dev1", "area_id": "kitchen", "name": "Multi Sensor", "name_by_user": "Kitchen Sensor"},
     ]
     return mock
 
@@ -155,3 +155,29 @@ async def test_set_hidden(registry: DeviceRegistry):
     registry.set_hidden("ha:light.kitchen", False)
     devices = registry.get_devices("Kitchen")
     assert any(d.id == "ha:light.kitchen" for d in devices)
+
+
+@pytest.mark.asyncio
+async def test_get_all_device_groups_ha(registry: DeviceRegistry):
+    groups = registry.get_all_device_groups("Kitchen")
+    # Both HA entities belong to the same device "dev1"
+    ha_groups = [g for g in groups if g[0] == "dev1"]
+    assert len(ha_groups) == 1
+    group_id, group_name, entities = ha_groups[0]
+    assert group_name == "Kitchen Sensor"  # name_by_user preferred
+    assert len(entities) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_all_device_groups_wb(registry: DeviceRegistry):
+    groups = registry.get_all_device_groups("Server")
+    assert len(groups) == 1
+    group_id, group_name, entities = groups[0]
+    assert group_name == "Server Relay"
+    assert len(entities) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_all_device_groups_empty_room(registry: DeviceRegistry):
+    groups = registry.get_all_device_groups("Nonexistent")
+    assert groups == []

@@ -53,6 +53,19 @@ class DeviceRegistry:
             if area_id and area_id in area_map:
                 device_area[d["id"]] = area_map[area_id]
 
+        # Build entity -> HA device mappings (for settings navigation)
+        self._entity_to_ha_device: dict[str, str] = {}
+        self._ha_device_names: dict[str, str] = {}
+
+        for d in devices_reg:
+            name = d.get("name_by_user") or d.get("name") or "Unknown"
+            self._ha_device_names[d["id"]] = name
+
+        for e in entities:
+            device_id = e.get("device_id")
+            if device_id:
+                self._entity_to_ha_device[f"ha:{e['entity_id']}"] = device_id
+
         # Build entity_id -> area_name map
         # Priority: entity's own area_id > device's area_id
         entity_area = {}
@@ -98,6 +111,31 @@ class DeviceRegistry:
             self._hidden.add(entity_id)
         else:
             self._hidden.discard(entity_id)
+
+    def get_all_device_groups(self, room: str) -> list[tuple[str, str, list[Device]]]:
+        """Returns (group_id, group_name, entities) for settings navigation."""
+        all_in_room = self.get_all_devices(room)
+        groups: dict[str, list[Device]] = {}
+        group_names: dict[str, str] = {}
+
+        for d in all_in_room:
+            if d.source == "ha":
+                ha_dev_id = self._entity_to_ha_device.get(d.id)
+                if ha_dev_id:
+                    groups.setdefault(ha_dev_id, []).append(d)
+                    group_names[ha_dev_id] = self._ha_device_names.get(ha_dev_id, d.name)
+                else:
+                    key = f"_solo:{d.id}"
+                    groups.setdefault(key, []).append(d)
+                    group_names[key] = d.name
+            else:
+                groups.setdefault(d.id, []).append(d)
+                group_names[d.id] = d.name
+
+        result = []
+        for gid in sorted(groups, key=lambda k: group_names.get(k, "")):
+            result.append((gid, group_names[gid], groups[gid]))
+        return result
 
     def get_device(self, device_id: str) -> Device | None:
         return self._devices.get(device_id)
