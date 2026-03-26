@@ -15,7 +15,7 @@ Telegram-бот для управления умным домом через Hom
 
 ## Быстрый старт
 
-1. Copy config:
+1. Создайте `config.yaml`:
    ```bash
    cp config.example.yaml config.yaml
    ```
@@ -33,51 +33,46 @@ Telegram-бот для управления умным домом через Hom
    docker compose up -d
    ```
 
-## Интеграция с существующим Docker Compose
+## Docker-образ
 
-Если Home Assistant и Wirenboard уже работают в Docker, добавьте habot в тот же стек.
+Готовый образ публикуется в GitHub Container Registry при каждом пуше в master.
 
-### Вариант А: Добавить в существующий docker-compose.yml
+```
+ghcr.io/ilyalaletin/habot:master
+```
 
-Добавьте сервис `habot` в ваш `docker-compose.yml`:
+### Использование в docker-compose.yml
 
 ```yaml
 services:
-  # ... your existing services (homeassistant, etc.)
-
   habot:
-    build: /path/to/habot
+    image: ghcr.io/ilyalaletin/habot:master
     restart: unless-stopped
     volumes:
-      - /path/to/habot/config.yaml:/app/config.yaml:ro
+      - ./config.yaml:/app/config.yaml:ro
       - habot-data:/app/data
     environment:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - HA_TOKEN=${HA_TOKEN}
-    networks:
-      - default  # same network as HA and WB
 
 volumes:
   habot-data:
 ```
 
-В `config.yaml` используйте имена Docker-сервисов в качестве хостов:
+### Обновление
 
-```yaml
-homeassistant:
-  url: "http://homeassistant:8123"  # Docker service name
-mqtt:
-  host: "wirenboard"  # or your MQTT broker service name
+```bash
+docker compose pull && docker compose up -d
 ```
 
-### Вариант Б: Отдельный compose с общей сетью
+### Интеграция с существующим стеком
 
-Если у habot свой `docker-compose.yml`, подключите его к существующей сети:
+Если Home Assistant и Wirenboard уже работают в Docker, подключите habot к той же сети:
 
 ```yaml
 services:
   habot:
-    build: .
+    image: ghcr.io/ilyalaletin/habot:master
     restart: unless-stopped
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -94,12 +89,16 @@ volumes:
 networks:
   ha-network:
     external: true
-    name: homeassistant_default  # name of your HA network (check with: docker network ls)
+    name: homeassistant_default  # имя сети HA (проверьте: docker network ls)
 ```
 
-Найдите имя сети HA:
-```bash
-docker network ls | grep home
+В `config.yaml` используйте имена Docker-сервисов:
+
+```yaml
+homeassistant:
+  url: "http://homeassistant:8123"
+mqtt:
+  host: "wirenboard"
 ```
 
 ## Конфигурация
