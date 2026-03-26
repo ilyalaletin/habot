@@ -6,3 +6,4 @@ tests/
 docs/
 data/
 .env
+config.yaml
