@@ -1,8 +1,13 @@
+import logging
+
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
+
+logger = logging.getLogger(__name__)
 
 from bot.devices.registry import DeviceRegistry
 from bot.storage.db import Storage
@@ -190,7 +195,7 @@ def make_router(
         devices = registry.get_devices(room_name)
         groups = registry.get_device_groups(room_name)
         text = format_room_summary(room_name, groups=groups)
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=room_devices_keyboard(room_name, devices))
+        await _safe_edit(callback.message, text, parse_mode="HTML", reply_markup=room_devices_keyboard(room_name, devices))
         await callback.answer()
 
     @router.callback_query(F.data.startswith("device:"))
@@ -205,43 +210,51 @@ def make_router(
             kb = dimmer_control_keyboard(device_id, device.room)
         else:
             kb = switch_control_keyboard(device_id, device.room)
-        await callback.message.edit_text(text, reply_markup=kb)
+        await _safe_edit(callback.message, text, reply_markup=kb)
         await callback.answer()
 
     @router.callback_query(F.data.startswith("set:"))
     async def cb_set(callback: CallbackQuery) -> None:
-        _, device_id, state = callback.data.split(":", 2)
-        await registry.set_state(device_id, state)
-        device = registry.get_device(device_id)
-        await callback.answer(f"{device.name}: {state}")
-        text = format_device_state(device)
-        if device.type == "dimmer":
-            kb = dimmer_control_keyboard(device_id, device.room)
-        else:
-            kb = switch_control_keyboard(device_id, device.room)
-        await callback.message.edit_text(text, reply_markup=kb)
+        try:
+            _, device_id, state = callback.data.split(":", 2)
+            await registry.set_state(device_id, state)
+            device = registry.get_device(device_id)
+            text = format_device_state(device)
+            if device.type == "dimmer":
+                kb = dimmer_control_keyboard(device_id, device.room)
+            else:
+                kb = switch_control_keyboard(device_id, device.room)
+            await _safe_edit(callback.message, text, reply_markup=kb)
+        except Exception:
+            logger.exception("Error in cb_set")
+        finally:
+            await callback.answer()
 
     @router.callback_query(F.data.startswith("dim:"))
     async def cb_dim(callback: CallbackQuery) -> None:
-        _, device_id, pct_str = callback.data.split(":", 2)
-        pct = int(pct_str)
-        brightness = int(round(pct / 100 * 255))
-        await registry.set_state(device_id, "on", brightness=brightness)
-        device = registry.get_device(device_id)
-        await callback.answer(f"{device.name}: {pct}%")
-        text = format_device_state(device)
-        kb = dimmer_control_keyboard(device_id, device.room)
-        await callback.message.edit_text(text, reply_markup=kb)
+        try:
+            _, device_id, pct_str = callback.data.split(":", 2)
+            pct = int(pct_str)
+            brightness = int(round(pct / 100 * 255))
+            await registry.set_state(device_id, "on", brightness=brightness)
+            device = registry.get_device(device_id)
+            text = format_device_state(device)
+            kb = dimmer_control_keyboard(device_id, device.room)
+            await _safe_edit(callback.message, text, reply_markup=kb)
+        except Exception:
+            logger.exception("Error in cb_dim")
+        finally:
+            await callback.answer()
 
     @router.callback_query(F.data == "back:rooms")
     async def cb_back_rooms(callback: CallbackQuery) -> None:
         rooms = registry.get_rooms()
-        await callback.message.edit_text("🏠 Комнаты:", reply_markup=rooms_keyboard(rooms))
+        await _safe_edit(callback.message,"🏠 Комнаты:", reply_markup=rooms_keyboard(rooms))
         await callback.answer()
 
     @router.callback_query(F.data == "bk:menu")
     async def cb_back_menu(callback: CallbackQuery) -> None:
-        await callback.message.edit_text("📋 Меню:", reply_markup=menu_keyboard())
+        await _safe_edit(callback.message,"📋 Меню:", reply_markup=menu_keyboard())
         await callback.answer()
 
     # ==================== Menu callbacks ====================
@@ -251,7 +264,7 @@ def make_router(
         cmd = callback.data.removeprefix("menu:")
         if cmd == "rooms":
             rooms = registry.get_rooms()
-            await callback.message.edit_text("🏠 Комнаты:", reply_markup=rooms_keyboard(rooms))
+            await _safe_edit(callback.message,"🏠 Комнаты:", reply_markup=rooms_keyboard(rooms))
         elif cmd == "status":
             await callback.message.delete()
             rooms = registry.get_rooms()
@@ -271,9 +284,9 @@ def make_router(
         elif cmd == "rules":
             await _show_all_rules(callback.message, edit=True)
         elif cmd == "settings":
-            await callback.message.edit_text("⚙️ Настройки:", reply_markup=settings_root_keyboard())
+            await _safe_edit(callback.message,"⚙️ Настройки:", reply_markup=settings_root_keyboard())
         elif cmd == "help":
-            await callback.message.edit_text(format_help(), parse_mode="HTML")
+            await _safe_edit(callback.message,format_help(), parse_mode="HTML")
         await callback.answer()
 
     # ==================== Rules ====================
@@ -297,7 +310,7 @@ def make_router(
 
     @router.callback_query(F.data == "bk:s")
     async def cb_back_settings(callback: CallbackQuery) -> None:
-        await callback.message.edit_text("⚙️ Настройки:", reply_markup=settings_root_keyboard())
+        await _safe_edit(callback.message,"⚙️ Настройки:", reply_markup=settings_root_keyboard())
         await callback.answer()
 
     # ==================== Visibility ====================
@@ -305,7 +318,7 @@ def make_router(
     @router.callback_query(F.data == "s:vis")
     async def cb_vis_rooms(callback: CallbackQuery) -> None:
         rooms = registry.get_all_rooms()
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             "👁 Видимость — выберите комнату:",
             reply_markup=settings_rooms_keyboard(rooms, prefix="sv"),
         )
@@ -323,7 +336,7 @@ def make_router(
         if not groups:
             await callback.answer("Нет устройств в этой комнате")
             return
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             f"<b>{room}</b> — выберите устройство:",
             parse_mode="HTML",
             reply_markup=settings_devices_keyboard(groups, ri, prefix="sv"),
@@ -346,7 +359,7 @@ def make_router(
             return
         _, group_name, entities = groups[gi]
         hidden = await storage.get_hidden_entities()
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             f"<b>{group_name}</b>\nПереключить видимость:",
             parse_mode="HTML",
             reply_markup=visibility_entities_keyboard(entities, hidden, ri, gi),
@@ -373,7 +386,7 @@ def make_router(
         hidden_set = await storage.get_hidden_entities()
         status = "скрыто" if new_hidden else "видимо"
         await callback.answer(f"{entity.name}: {status}")
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             f"<b>{group_name}</b>\nПереключить видимость:",
             parse_mode="HTML",
             reply_markup=visibility_entities_keyboard(entities, hidden_set, ri, gi),
@@ -384,7 +397,7 @@ def make_router(
     @router.callback_query(F.data == "s:ntf")
     async def cb_ntf_rooms(callback: CallbackQuery) -> None:
         rooms = registry.get_all_rooms()
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             "🔔 Правила уведомлений — выберите комнату:",
             reply_markup=settings_rooms_keyboard(rooms, prefix="sn"),
         )
@@ -402,7 +415,7 @@ def make_router(
         if not groups:
             await callback.answer("Нет устройств в этой комнате")
             return
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             f"<b>{room}</b> — выберите устройство:",
             parse_mode="HTML",
             reply_markup=settings_devices_keyboard(groups, ri, prefix="sn"),
@@ -428,7 +441,7 @@ def make_router(
         if not visible:
             await callback.answer("Все сущности в этой группе скрыты")
             return
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             f"<b>{group_name}</b>\nВыберите сущность для правил:",
             parse_mode="HTML",
             reply_markup=notification_entities_keyboard(visible, ri, gi),
@@ -465,7 +478,7 @@ def make_router(
             await callback.answer("Сущность не найдена")
             return
         await state.update_data(rule_entity_id=entity.id, rule_ri=ri, rule_gi=gi, rule_ei=ei)
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             "Выберите оператор:", reply_markup=operator_keyboard()
         )
         await callback.answer()
@@ -500,7 +513,7 @@ def make_router(
             prompt = "Введите пороговое значение (число, или /cancel):"
         else:
             prompt = "Введите значение (число, on, off и т.д. — или /cancel):"
-        await callback.message.edit_text(prompt)
+        await _safe_edit(callback.message,prompt)
         await callback.answer()
 
     @router.message(AddRuleStates.waiting_for_value)
@@ -583,11 +596,18 @@ def make_router(
             lines.append(f"{i}. {r['operator']} {r['value']}{h}")
         if not rules:
             lines.append("Нет правил.")
-        await callback.message.edit_text(
+        await _safe_edit(callback.message,
             "\n".join(lines),
             parse_mode="HTML",
             reply_markup=notification_rules_keyboard(rules, ri, gi, ei),
         )
+
+    async def _safe_edit(message, text: str, **kwargs) -> None:
+        try:
+            await message.edit_text(text, **kwargs)
+        except TelegramBadRequest as e:
+            if "message is not modified" not in str(e):
+                raise
 
     async def _show_all_rules(target, edit: bool = False) -> None:
         from bot.telegram.keyboards import back_keyboard
@@ -601,7 +621,7 @@ def make_router(
             kb = back_keyboard("bk:menu", "◀️ Menu")
         text = "<b>📋 Правила уведомлений:</b>" if rules else "Нет правил уведомлений."
         if edit:
-            await target.edit_text(text, parse_mode="HTML", reply_markup=kb)
+            await _safe_edit(target, text, parse_mode="HTML", reply_markup=kb)
         else:
             await target.answer(text, parse_mode="HTML", reply_markup=kb)
 
