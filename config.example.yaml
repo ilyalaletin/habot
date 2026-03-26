@@ -1,0 +1,32 @@
+telegram:
+  token: "YOUR_BOT_TOKEN"
+  chat_id: -1001234567890  # ID of your group chat
+
+homeassistant:
+  url: "http://192.168.1.10:8123"
+  token: "YOUR_HA_LONG_LIVED_TOKEN"
+
+mqtt:
+  host: "192.168.1.20"
+  port: 1883
+  # username: ""
+  # password: ""
+
+wirenboard:
+  devices:
+    - id: "wb-mr6c_1"
+      name: "Relay Hall"
+      room: "Hall"
+      type: "switch"  # switch | dimmer | sensor
+      topic: "/devices/wb-mr6c_1/controls/K1"
+
+    - id: "wb-msw3_temp"
+      name: "Temperature Server"
+      room: "Server Room"
+      type: "sensor"
+      topic: "/devices/wb-msw-v3_1/controls/Temperature"
+      unit: "C"
+
+database:
+  path: "./data/habot.db"
+  history_retention_days: 30
