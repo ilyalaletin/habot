@@ -55,19 +55,19 @@ def settings_root_keyboard() -> InlineKeyboardMarkup:
 
 def settings_rooms_keyboard(rooms: list[str], prefix: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for room in rooms:
-        builder.button(text=room, callback_data=f"{prefix}:r:{room}")
+    for idx, room in enumerate(rooms):
+        builder.button(text=room, callback_data=f"{prefix}:r:{idx}")
     builder.adjust(2)
     builder.row(InlineKeyboardButton(text="<- Back", callback_data="bk:s"))
     return builder.as_markup()
 
 
 def settings_devices_keyboard(
-    groups: list[tuple[str, str, list]], room: str, prefix: str
+    groups: list[tuple[str, str, list]], room_idx: int, prefix: str
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for idx, (group_id, group_name, entities) in enumerate(groups):
-        builder.button(text=group_name, callback_data=f"{prefix}:d:{room}:{idx}")
+        builder.button(text=group_name, callback_data=f"{prefix}:d:{room_idx}:{idx}")
     builder.adjust(2)
     back_target = "s:vis" if prefix == "sv" else "s:ntf"
     builder.row(InlineKeyboardButton(text="<- Back", callback_data=back_target))
@@ -75,39 +75,39 @@ def settings_devices_keyboard(
 
 
 def visibility_entities_keyboard(
-    entities: list[Device], hidden: set[str], room: str
+    entities: list[Device], hidden: set[str], room_idx: int, group_idx: int
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for d in entities:
+    for ei, d in enumerate(entities):
         mark = "[ ]" if d.id in hidden else "[x]"
-        builder.button(text=f"{mark} {d.name}", callback_data=f"sv:t:{room}:{d.id}")
+        builder.button(text=f"{mark} {d.name}", callback_data=f"sv:t:{room_idx}:{group_idx}:{ei}")
     builder.adjust(1)
-    builder.row(InlineKeyboardButton(text="<- Back", callback_data=f"sv:r:{room}"))
+    builder.row(InlineKeyboardButton(text="<- Back", callback_data=f"sv:r:{room_idx}"))
     return builder.as_markup()
 
 
 def notification_entities_keyboard(
-    entities: list[Device], room: str
+    entities: list[Device], room_idx: int, group_idx: int
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for d in entities:
-        builder.button(text=d.name, callback_data=f"sn:e:{d.id}")
+    for ei, d in enumerate(entities):
+        builder.button(text=d.name, callback_data=f"sn:e:{room_idx}:{group_idx}:{ei}")
     builder.adjust(1)
-    builder.row(InlineKeyboardButton(text="<- Back", callback_data=f"sn:r:{room}"))
+    builder.row(InlineKeyboardButton(text="<- Back", callback_data=f"sn:r:{room_idx}"))
     return builder.as_markup()
 
 
 def notification_rules_keyboard(
-    rules: list[dict], entity_id: str, room: str
+    rules: list[dict], room_idx: int, group_idx: int, ent_idx: int
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for rule in rules:
         hold = f", hold {rule['hold_minutes']}m" if rule["hold_minutes"] > 0 else ""
         label = f"[Del] {rule['operator']} {rule['value']}{hold}"
-        builder.button(text=label, callback_data=f"sn:x:{entity_id}:{rule['id']}")
+        builder.button(text=label, callback_data=f"sn:x:{rule['id']}:{room_idx}:{group_idx}:{ent_idx}")
     builder.adjust(1)
-    builder.row(InlineKeyboardButton(text="+ Add Rule", callback_data=f"sn:a:{entity_id}"))
-    builder.row(InlineKeyboardButton(text="<- Back", callback_data=f"sn:r:{room}"))
+    builder.row(InlineKeyboardButton(text="+ Add Rule", callback_data=f"sn:a:{room_idx}:{group_idx}:{ent_idx}"))
+    builder.row(InlineKeyboardButton(text="<- Back", callback_data=f"sn:d:{room_idx}:{group_idx}"))
     return builder.as_markup()
 
 

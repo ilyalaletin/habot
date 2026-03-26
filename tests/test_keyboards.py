@@ -56,8 +56,8 @@ def test_settings_root_keyboard():
 def test_settings_rooms_keyboard():
     kb = settings_rooms_keyboard(["Kitchen", "Bedroom"], prefix="sv")
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-    assert "sv:r:Kitchen" in callbacks
-    assert "sv:r:Bedroom" in callbacks
+    assert "sv:r:0" in callbacks
+    assert "sv:r:1" in callbacks
     assert any("bk:s" in c for c in callbacks)  # back button
 
 
@@ -66,10 +66,10 @@ def test_settings_devices_keyboard():
         ("dev1", "Multi Sensor", []),
         ("dev2", "Light", []),
     ]
-    kb = settings_devices_keyboard(groups, "Kitchen", prefix="sv")
+    kb = settings_devices_keyboard(groups, 0, prefix="sv")
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-    assert "sv:d:Kitchen:0" in callbacks
-    assert "sv:d:Kitchen:1" in callbacks
+    assert "sv:d:0:0" in callbacks
+    assert "sv:d:0:1" in callbacks
 
 
 def test_visibility_entities_keyboard():
@@ -78,21 +78,22 @@ def test_visibility_entities_keyboard():
         Device(id="ha:sensor.voltage", name="Voltage", room="Kitchen", type="sensor", source="ha"),
     ]
     hidden = {"ha:sensor.voltage"}
-    kb = visibility_entities_keyboard(devices, hidden, "Kitchen")
+    kb = visibility_entities_keyboard(devices, hidden, 0, 1)
     texts = [btn.text for row in kb.inline_keyboard for btn in row]
     assert any("[x]" in t and "Temperature" in t for t in texts)
     assert any("[ ]" in t and "Voltage" in t for t in texts)
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-    assert any("sv:t:Kitchen:ha:sensor.temp" in c for c in callbacks)
+    assert "sv:t:0:1:0" in callbacks
+    assert "sv:t:0:1:1" in callbacks
 
 
 def test_notification_entities_keyboard():
     devices = [
         Device(id="ha:sensor.temp", name="Temperature", room="Kitchen", type="sensor", source="ha"),
     ]
-    kb = notification_entities_keyboard(devices, "Kitchen")
+    kb = notification_entities_keyboard(devices, 0, 2)
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-    assert "sn:e:ha:sensor.temp" in callbacks
+    assert "sn:e:0:2:0" in callbacks
 
 
 def test_notification_rules_keyboard():
@@ -100,10 +101,10 @@ def test_notification_rules_keyboard():
         {"id": 1, "operator": ">", "value": "35", "hold_minutes": 10, "fired": False},
         {"id": 2, "operator": "<", "value": "5", "hold_minutes": 0, "fired": False},
     ]
-    kb = notification_rules_keyboard(rules, "ha:sensor.temp", "Kitchen")
+    kb = notification_rules_keyboard(rules, 0, 1, 2)
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-    assert any("sn:x:ha:sensor.temp:1" in c for c in callbacks)
-    assert any("sn:a:ha:sensor.temp" in c for c in callbacks)
+    assert "sn:x:1:0:1:2" in callbacks
+    assert "sn:a:0:1:2" in callbacks
 
 
 def test_operator_keyboard():
