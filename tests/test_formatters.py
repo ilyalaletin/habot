@@ -40,3 +40,6 @@ def test_format_help():
     assert "/help" in text
     assert "/on" in text
     assert "/off" in text
+    assert "/settings" in text
+    assert "/cancel" in text
+    assert "/notifications" not in text

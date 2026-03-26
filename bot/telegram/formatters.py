@@ -40,7 +40,8 @@ def format_help() -> str:
         ("/off &lt;name&gt;", "Turn off device"),
         ("/set &lt;name&gt; &lt;value&gt;", "Set value (dimmer: 0-100)"),
         ("/status", "Full summary of all rooms"),
-        ("/notifications", "Manage notifications (on/off)"),
+        ("/settings", "Visibility and notification rules"),
+        ("/cancel", "Cancel current operation"),
     ]
     lines = ["<b>Available commands:</b>", ""]
     for cmd, desc in commands:
