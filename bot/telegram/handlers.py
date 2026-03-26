@@ -38,11 +38,20 @@ def make_router(registry: DeviceRegistry, storage: Storage, chat_id: int) -> Rou
         if not _check_chat(message):
             return
         rooms = registry.get_rooms()
-        parts = []
+        # Send room summaries in chunks to avoid Telegram message limit
+        chunk = []
+        chunk_len = 0
         for room in rooms:
             devices = registry.get_devices(room)
-            parts.append(format_room_summary(room, devices))
-        await message.answer("\n\n".join(parts), parse_mode="HTML")
+            part = format_room_summary(room, devices)
+            if chunk and chunk_len + len(part) + 2 > 4000:
+                await message.answer("\n\n".join(chunk), parse_mode="HTML")
+                chunk = []
+                chunk_len = 0
+            chunk.append(part)
+            chunk_len += len(part) + 2
+        if chunk:
+            await message.answer("\n\n".join(chunk), parse_mode="HTML")
 
     @router.message(Command("room"))
     async def cmd_room(message: Message) -> None:
