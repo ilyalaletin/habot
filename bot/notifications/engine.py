@@ -56,6 +56,8 @@ class NotificationEngine:
 
     async def on_state_changed(self, entity_id: str, new_state: str) -> None:
         """Evaluate all rules for entity after state change."""
+        if self._registry.is_hidden(entity_id):
+            return
         rules = await self._storage.get_rules_for_entity(entity_id)
         if not rules:
             return

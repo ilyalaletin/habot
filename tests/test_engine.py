@@ -66,6 +66,7 @@ async def engine_deps(tmp_path):
     await storage.init()
 
     registry = MagicMock()
+    registry.is_hidden.return_value = False
     send_fn = AsyncMock()
 
     yield storage, registry, send_fn
@@ -95,6 +96,19 @@ async def test_immediate_rule_fires(engine_deps):
 
     send_fn.assert_called_once()
     assert "Temp Sensor" in send_fn.call_args[0][0]
+    await eng.stop()
+
+
+@pytest.mark.asyncio
+async def test_hidden_entity_skips_notification(engine_deps):
+    storage, registry, send_fn = engine_deps
+    eng = NotificationEngine(storage, registry, send_fn)
+    registry.is_hidden.return_value = True
+
+    await storage.add_rule("ha:sensor.temp", ">", "35", hold_minutes=0)
+    await eng.on_state_changed("ha:sensor.temp", "36")
+
+    send_fn.assert_not_called()
     await eng.stop()
 
 

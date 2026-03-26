@@ -106,6 +106,9 @@ class DeviceRegistry:
     def get_all_devices(self, room: str) -> list[Device]:
         return [d for d in self._devices.values() if d.room == room]
 
+    def is_hidden(self, entity_id: str) -> bool:
+        return entity_id in self._hidden
+
     def set_hidden(self, entity_id: str, hidden: bool) -> None:
         if hidden:
             self._hidden.add(entity_id)

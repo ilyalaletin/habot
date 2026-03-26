@@ -50,6 +50,21 @@ def make_router(
             return None, None, None, None
         return entities[ei], room, group_name, entities
 
+    def _resolve_visible(ri: int, gi: int, ei: int):
+        """Like _resolve but filters out hidden entities (for notifications)."""
+        rooms = registry.get_all_rooms()
+        if ri >= len(rooms):
+            return None, None, None, None
+        room = rooms[ri]
+        groups = registry.get_all_device_groups(room)
+        if gi >= len(groups):
+            return None, None, None, None
+        _, group_name, all_entities = groups[gi]
+        visible = [e for e in all_entities if not registry.is_hidden(e.id)]
+        if ei >= len(visible):
+            return None, None, None, None
+        return visible[ei], room, group_name, visible
+
     # ==================== Device commands ====================
 
     @router.message(CommandStart())
@@ -344,11 +359,15 @@ def make_router(
         if gi >= len(groups):
             await callback.answer("Device not found")
             return
-        _, group_name, entities = groups[gi]
+        _, group_name, all_entities = groups[gi]
+        visible = [e for e in all_entities if not registry.is_hidden(e.id)]
+        if not visible:
+            await callback.answer("All entities in this group are hidden")
+            return
         await callback.message.edit_text(
             f"<b>{group_name}</b>\nSelect entity for rules:",
             parse_mode="HTML",
-            reply_markup=notification_entities_keyboard(entities, ri, gi),
+            reply_markup=notification_entities_keyboard(visible, ri, gi),
         )
         await callback.answer()
 
@@ -377,7 +396,7 @@ def make_router(
         rest = callback.data.removeprefix("sn:a:")
         parts = rest.split(":")
         ri, gi, ei = int(parts[0]), int(parts[1]), int(parts[2])
-        entity, room, group_name, entities = _resolve(ri, gi, ei)
+        entity, room, group_name, entities = _resolve_visible(ri, gi, ei)
         if not entity:
             await callback.answer("Entity not found")
             return
@@ -471,7 +490,7 @@ def make_router(
         await message.answer(f"Rule added: {operator} {value}{hold_text}")
 
         # Show updated rules list
-        entity, room, group_name, entities = _resolve(ri, gi, ei)
+        entity, room, group_name, entities = _resolve_visible(ri, gi, ei)
         name = entity.name if entity else entity_id
         rules = await storage.get_rules_for_entity(entity_id)
         lines = [f"<b>{name}</b>", ""]
@@ -489,7 +508,7 @@ def make_router(
     # ==================== Helpers ====================
 
     async def _show_rules(callback: CallbackQuery, ri: int, gi: int, ei: int) -> None:
-        entity, room, group_name, entities = _resolve(ri, gi, ei)
+        entity, room, group_name, entities = _resolve_visible(ri, gi, ei)
         if not entity:
             await callback.answer("Entity not found")
             return
