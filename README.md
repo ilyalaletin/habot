@@ -7,8 +7,8 @@ Telegram bot for smart home control via Home Assistant and Wirenboard.
 - Browse devices by room with inline buttons
 - Control switches and dimmers
 - Quick commands: /on, /off, /set, /status
-- Real-time notifications from Home Assistant events
-- Per-entity notification management (enable/disable)
+- Rule-based notifications with thresholds (>, <, >=, <=, =) and hold timers
+- Per-entity visibility toggles (hide noisy sensors from status)
 - Wirenboard MQTT devices alongside HA devices
 
 ## Quick Start
@@ -115,7 +115,8 @@ See `config.example.yaml` for all options. Environment variables `TELEGRAM_TOKEN
 | /off <name> | Turn off device |
 | /set <name> <value> | Set value (dimmer: 0-100) |
 | /status | Full summary |
-| /notifications | Manage notifications |
+| /settings | Visibility and notification rules |
+| /cancel | Cancel current operation |
 
 ## Supported Device Types (v1)
 
