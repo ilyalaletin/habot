@@ -43,7 +43,7 @@ class Storage:
         )
         row = await cursor.fetchone()
         if row is None:
-            return True  # enabled by default
+            return False  # disabled by default, enable via /notifications
         return bool(row[0])
 
     async def set_notification_enabled(self, entity_id: str, enabled: bool) -> None:
@@ -80,7 +80,7 @@ class Storage:
         settings_rows = await cursor.fetchall()
         result: dict[str, bool] = {}
         for entity_id in entities:
-            result[entity_id] = True  # default
+            result[entity_id] = False  # default is disabled
         for entity_id, enabled in settings_rows:
             entities.add(entity_id)
             result[entity_id] = bool(enabled)

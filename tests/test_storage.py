@@ -13,8 +13,8 @@ async def storage(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_notification_enabled_by_default(storage: Storage):
-    assert await storage.is_notification_enabled("ha:sensor.temp") is True
+async def test_notification_disabled_by_default(storage: Storage):
+    assert await storage.is_notification_enabled("ha:sensor.temp") is False
 
 
 @pytest.mark.asyncio
@@ -42,11 +42,11 @@ async def test_add_and_get_history(storage: Storage):
 async def test_get_notification_settings(storage: Storage):
     await storage.add_history("ha:sensor.a", "msg1")
     await storage.add_history("ha:sensor.b", "msg2")
-    await storage.set_notification_enabled("ha:sensor.a", False)
+    await storage.set_notification_enabled("ha:sensor.a", True)
     settings = await storage.get_notification_settings()
     # Returns dict: entity_id -> enabled
-    assert settings["ha:sensor.a"] is False
-    assert settings["ha:sensor.b"] is True  # default
+    assert settings["ha:sensor.a"] is True  # explicitly enabled
+    assert settings["ha:sensor.b"] is False  # default is disabled
 
 
 @pytest.mark.asyncio

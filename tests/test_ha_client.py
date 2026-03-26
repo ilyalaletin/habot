@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from aiohttp import ClientSession
+from unittest.mock import AsyncMock, patch
 from aioresponses import aioresponses
 from bot.homeassistant.client import HAClient
 
@@ -27,24 +27,24 @@ async def test_get_states(ha_client: HAClient):
 
 @pytest.mark.asyncio
 async def test_get_areas(ha_client: HAClient):
-    with aioresponses() as m:
-        m.get(f"{HA_URL}/api/areas", payload=[
-            {"area_id": "kitchen", "name": "Kitchen"},
-            {"area_id": "bedroom", "name": "Bedroom"},
-        ])
-        areas = await ha_client.get_areas()
-        assert len(areas) == 2
-        assert areas[0]["name"] == "Kitchen"
+    ha_client._ws_command = AsyncMock(return_value=[
+        {"area_id": "kitchen", "name": "Kitchen"},
+        {"area_id": "bedroom", "name": "Bedroom"},
+    ])
+    areas = await ha_client.get_areas()
+    assert len(areas) == 2
+    assert areas[0]["name"] == "Kitchen"
+    ha_client._ws_command.assert_called_once_with("config/area_registry/list")
 
 @pytest.mark.asyncio
 async def test_get_entity_registry(ha_client: HAClient):
-    with aioresponses() as m:
-        m.get(f"{HA_URL}/api/entities", payload=[
-            {"entity_id": "light.kitchen", "area_id": "kitchen", "device_id": "dev1"},
-        ])
-        entities = await ha_client.get_entity_registry()
-        assert entities[0]["entity_id"] == "light.kitchen"
-        assert entities[0]["area_id"] == "kitchen"
+    ha_client._ws_command = AsyncMock(return_value=[
+        {"entity_id": "light.kitchen", "area_id": "kitchen", "device_id": "dev1"},
+    ])
+    entities = await ha_client.get_entity_registry()
+    assert entities[0]["entity_id"] == "light.kitchen"
+    assert entities[0]["area_id"] == "kitchen"
+    ha_client._ws_command.assert_called_once_with("config/entity_registry/list")
 
 @pytest.mark.asyncio
 async def test_call_service(ha_client: HAClient):
