@@ -1,3 +1,5 @@
+from html import escape
+
 from bot.devices.models import Device
 
 
@@ -33,14 +35,14 @@ def format_help() -> str:
     commands = [
         ("/help", "List of all commands"),
         ("/rooms", "List rooms"),
-        ("/room <name>", "Room summary"),
-        ("/on <name>", "Turn on device"),
-        ("/off <name>", "Turn off device"),
-        ("/set <name> <value>", "Set value (dimmer: 0-100)"),
+        ("/room &lt;name&gt;", "Room summary"),
+        ("/on &lt;name&gt;", "Turn on device"),
+        ("/off &lt;name&gt;", "Turn off device"),
+        ("/set &lt;name&gt; &lt;value&gt;", "Set value (dimmer: 0-100)"),
         ("/status", "Full summary of all rooms"),
         ("/notifications", "Manage notifications (on/off)"),
     ]
     lines = ["<b>Available commands:</b>", ""]
     for cmd, desc in commands:
-        lines.append(f"{cmd} -- {desc}")
+        lines.append(f"<code>{cmd}</code> — {desc}")
     return "\n".join(lines)

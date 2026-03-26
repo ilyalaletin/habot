@@ -41,12 +41,26 @@ class DeviceRegistry:
         states = await self._ha_client.get_states()
         areas = await self._ha_client.get_areas()
         entities = await self._ha_client.get_entity_registry()
+        devices_reg = await self._ha_client.get_device_registry()
+
         area_map = {a["area_id"]: a["name"] for a in areas}
+
+        # Build device_id -> area_name map
+        device_area = {}
+        for d in devices_reg:
+            area_id = d.get("area_id")
+            if area_id and area_id in area_map:
+                device_area[d["id"]] = area_map[area_id]
+
+        # Build entity_id -> area_name map
+        # Priority: entity's own area_id > device's area_id
         entity_area = {}
         for e in entities:
             area_id = e.get("area_id")
             if area_id and area_id in area_map:
                 entity_area[e["entity_id"]] = area_map[area_id]
+            elif e.get("device_id") and e["device_id"] in device_area:
+                entity_area[e["entity_id"]] = device_area[e["device_id"]]
         for s in states:
             entity_id = s["entity_id"]
             attrs = s.get("attributes", {})

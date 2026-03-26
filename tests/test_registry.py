@@ -14,8 +14,11 @@ def ha_client():
     ]
     mock.get_areas.return_value = [{"area_id": "kitchen", "name": "Kitchen"}]
     mock.get_entity_registry.return_value = [
-        {"entity_id": "light.kitchen", "area_id": "kitchen"},
-        {"entity_id": "sensor.kitchen_temp", "area_id": "kitchen"},
+        {"entity_id": "light.kitchen", "area_id": None, "device_id": "dev1"},
+        {"entity_id": "sensor.kitchen_temp", "area_id": None, "device_id": "dev1"},
+    ]
+    mock.get_device_registry.return_value = [
+        {"id": "dev1", "area_id": "kitchen"},
     ]
     return mock
 

@@ -48,6 +48,9 @@ class HAClient:
     async def get_entity_registry(self) -> list[dict]:
         return await self._ws_command("config/entity_registry/list")
 
+    async def get_device_registry(self) -> list[dict]:
+        return await self._ws_command("config/device_registry/list")
+
     async def call_service(self, domain: str, service: str, data: dict) -> None:
         assert self._session
         async with self._session.post(
