@@ -1,23 +1,42 @@
 from aiogram import Router, F
 from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
 
 from bot.devices.registry import DeviceRegistry
 from bot.storage.db import Storage
-from bot.telegram.formatters import (
-    format_room_summary, format_device_state, format_help,
-)
+from bot.telegram.formatters import format_room_summary, format_device_state, format_help
 from bot.telegram.keyboards import (
-    rooms_keyboard, room_devices_keyboard, switch_control_keyboard, dimmer_control_keyboard,
+    rooms_keyboard,
+    room_devices_keyboard,
+    switch_control_keyboard,
+    dimmer_control_keyboard,
+    settings_root_keyboard,
+    settings_rooms_keyboard,
+    settings_devices_keyboard,
+    visibility_entities_keyboard,
+    notification_entities_keyboard,
+    notification_rules_keyboard,
+    operator_keyboard,
 )
 
 
-def make_router(registry: DeviceRegistry, storage: Storage, chat_id: int) -> Router:
+class AddRuleStates(StatesGroup):
+    waiting_for_value = State()
+    waiting_for_hold = State()
+
+
+def make_router(
+    registry: DeviceRegistry, storage: Storage, chat_id: int, *, engine=None
+) -> Router:
     router = Router()
 
     def _check_chat(msg_or_cb) -> bool:
         chat = msg_or_cb.chat if hasattr(msg_or_cb, "chat") else msg_or_cb.message.chat
         return chat.id == chat_id
+
+    # ==================== Device commands ====================
 
     @router.message(CommandStart())
     @router.message(Command("rooms"))
@@ -38,7 +57,6 @@ def make_router(registry: DeviceRegistry, storage: Storage, chat_id: int) -> Rou
         if not _check_chat(message):
             return
         rooms = registry.get_rooms()
-        # Send room summaries in chunks to avoid Telegram message limit
         chunk = []
         chunk_len = 0
         for room in rooms:
@@ -120,26 +138,7 @@ def make_router(registry: DeviceRegistry, storage: Storage, chat_id: int) -> Rou
         else:
             await _send_disambiguation(message, controllable)
 
-    @router.message(Command("notifications"))
-    async def cmd_notifications(message: Message) -> None:
-        if not _check_chat(message):
-            return
-        await _send_notification_settings(message)
-
-    async def _send_notification_settings(message: Message) -> None:
-        settings = await storage.get_notification_settings()
-        if not settings:
-            await message.answer("No notification history yet.")
-            return
-        from aiogram.utils.keyboard import InlineKeyboardBuilder
-        builder = InlineKeyboardBuilder()
-        for entity_id, enabled in sorted(settings.items()):
-            builder.button(
-                text=f"{'[x]' if enabled else '[ ]'} {entity_id}",
-                callback_data=f"notif:{entity_id}:{'off' if enabled else 'on'}",
-            )
-        builder.adjust(1)
-        await message.answer("Notifications:", reply_markup=builder.as_markup())
+    # ==================== Device callbacks ====================
 
     @router.callback_query(F.data.startswith("room:"))
     async def cb_room(callback: CallbackQuery) -> None:
@@ -189,19 +188,292 @@ def make_router(registry: DeviceRegistry, storage: Storage, chat_id: int) -> Rou
         kb = dimmer_control_keyboard(device_id, device.room)
         await callback.message.edit_text(text, reply_markup=kb)
 
-    @router.callback_query(F.data.startswith("notif:"))
-    async def cb_notif_toggle(callback: CallbackQuery) -> None:
-        _, entity_id, action = callback.data.split(":", 2)
-        enabled = action == "on"
-        await storage.set_notification_enabled(entity_id, enabled)
-        await callback.answer(f"{'Enabled' if enabled else 'Disabled'}: {entity_id}")
-        await _send_notification_settings(callback.message)
-
     @router.callback_query(F.data == "back:rooms")
     async def cb_back_rooms(callback: CallbackQuery) -> None:
         rooms = registry.get_rooms()
         await callback.message.edit_text("Rooms:", reply_markup=rooms_keyboard(rooms))
         await callback.answer()
+
+    # ==================== Settings command ====================
+
+    @router.message(Command("settings"))
+    async def cmd_settings(message: Message) -> None:
+        if not _check_chat(message):
+            return
+        await message.answer("Settings:", reply_markup=settings_root_keyboard())
+
+    @router.callback_query(F.data == "bk:s")
+    async def cb_back_settings(callback: CallbackQuery) -> None:
+        await callback.message.edit_text("Settings:", reply_markup=settings_root_keyboard())
+        await callback.answer()
+
+    # ==================== Visibility ====================
+
+    @router.callback_query(F.data == "s:vis")
+    async def cb_vis_rooms(callback: CallbackQuery) -> None:
+        rooms = registry.get_all_rooms()
+        await callback.message.edit_text(
+            "Visibility — select room:",
+            reply_markup=settings_rooms_keyboard(rooms, prefix="sv"),
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("sv:r:"))
+    async def cb_vis_devices(callback: CallbackQuery) -> None:
+        room = callback.data.removeprefix("sv:r:")
+        groups = registry.get_all_device_groups(room)
+        if not groups:
+            await callback.answer("No devices in this room")
+            return
+        await callback.message.edit_text(
+            f"<b>{room}</b> — select device:",
+            parse_mode="HTML",
+            reply_markup=settings_devices_keyboard(groups, room, prefix="sv"),
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("sv:d:"))
+    async def cb_vis_entities(callback: CallbackQuery) -> None:
+        rest = callback.data.removeprefix("sv:d:")
+        room, idx_str = rest.rsplit(":", 1)
+        idx = int(idx_str)
+        groups = registry.get_all_device_groups(room)
+        if idx >= len(groups):
+            await callback.answer("Device not found")
+            return
+        group_id, group_name, entities = groups[idx]
+        hidden = await storage.get_hidden_entities()
+        await callback.message.edit_text(
+            f"<b>{group_name}</b>\nToggle visibility:",
+            parse_mode="HTML",
+            reply_markup=visibility_entities_keyboard(entities, hidden, room),
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("sv:t:"))
+    async def cb_vis_toggle(callback: CallbackQuery) -> None:
+        rest = callback.data.removeprefix("sv:t:")
+        # Format: sv:t:<room>:<entity_id> where entity_id contains ':'
+        # Room is the first segment, entity_id is everything after
+        parts = rest.split(":", 1)
+        if len(parts) < 2:
+            await callback.answer("Error")
+            return
+        room = parts[0]
+        entity_id = parts[1]
+        is_hidden = await storage.is_entity_hidden(entity_id)
+        new_hidden = not is_hidden
+        await storage.set_entity_hidden(entity_id, new_hidden)
+        registry.set_hidden(entity_id, new_hidden)
+
+        # Re-render: find the device group containing this entity
+        groups = registry.get_all_device_groups(room)
+        target_entities = None
+        target_name = room
+        for group_id, group_name, entities in groups:
+            if any(d.id == entity_id for d in entities):
+                target_entities = entities
+                target_name = group_name
+                break
+        if not target_entities:
+            await callback.answer("Entity not found")
+            return
+        hidden_set = await storage.get_hidden_entities()
+        status = "hidden" if new_hidden else "visible"
+        await callback.answer(f"{entity_id}: {status}")
+        await callback.message.edit_text(
+            f"<b>{target_name}</b>\nToggle visibility:",
+            parse_mode="HTML",
+            reply_markup=visibility_entities_keyboard(target_entities, hidden_set, room),
+        )
+
+    # ==================== Notifications ====================
+
+    @router.callback_query(F.data == "s:ntf")
+    async def cb_ntf_rooms(callback: CallbackQuery) -> None:
+        rooms = registry.get_all_rooms()
+        await callback.message.edit_text(
+            "Notification rules — select room:",
+            reply_markup=settings_rooms_keyboard(rooms, prefix="sn"),
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("sn:r:"))
+    async def cb_ntf_devices(callback: CallbackQuery) -> None:
+        room = callback.data.removeprefix("sn:r:")
+        groups = registry.get_all_device_groups(room)
+        if not groups:
+            await callback.answer("No devices in this room")
+            return
+        await callback.message.edit_text(
+            f"<b>{room}</b> — select device:",
+            parse_mode="HTML",
+            reply_markup=settings_devices_keyboard(groups, room, prefix="sn"),
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("sn:d:"))
+    async def cb_ntf_entities(callback: CallbackQuery) -> None:
+        rest = callback.data.removeprefix("sn:d:")
+        room, idx_str = rest.rsplit(":", 1)
+        idx = int(idx_str)
+        groups = registry.get_all_device_groups(room)
+        if idx >= len(groups):
+            await callback.answer("Device not found")
+            return
+        group_id, group_name, entities = groups[idx]
+        await callback.message.edit_text(
+            f"<b>{group_name}</b>\nSelect entity for rules:",
+            parse_mode="HTML",
+            reply_markup=notification_entities_keyboard(entities, room),
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data.startswith("sn:e:"))
+    async def cb_ntf_rules(callback: CallbackQuery) -> None:
+        entity_id = callback.data.removeprefix("sn:e:")
+        await _show_rules(callback, entity_id)
+
+    @router.callback_query(F.data.startswith("sn:x:"))
+    async def cb_ntf_delete_rule(callback: CallbackQuery) -> None:
+        rest = callback.data.removeprefix("sn:x:")
+        # Format: sn:x:<entity_id>:<rule_id>
+        # entity_id contains ':', rule_id is the last segment (integer)
+        parts = rest.rsplit(":", 1)
+        entity_id, rule_id_str = parts[0], parts[1]
+        rule_id = int(rule_id_str)
+        await storage.delete_rule(rule_id)
+        if engine:
+            engine.on_rule_deleted(rule_id)
+        await callback.answer("Rule deleted")
+        await _show_rules(callback, entity_id)
+
+    @router.callback_query(F.data.startswith("sn:a:"))
+    async def cb_ntf_add_rule(callback: CallbackQuery, state: FSMContext) -> None:
+        entity_id = callback.data.removeprefix("sn:a:")
+        await state.update_data(rule_entity_id=entity_id)
+        await callback.message.edit_text(
+            "Select operator:", reply_markup=operator_keyboard()
+        )
+        await callback.answer()
+
+    @router.callback_query(F.data == "sn:cancel")
+    async def cb_ntf_cancel_fsm(callback: CallbackQuery, state: FSMContext) -> None:
+        data = await state.get_data()
+        await state.clear()
+        entity_id = data.get("rule_entity_id")
+        if entity_id:
+            await _show_rules(callback, entity_id)
+        else:
+            await callback.answer("Cancelled")
+
+    @router.message(Command("cancel"))
+    async def cmd_cancel(message: Message, state: FSMContext) -> None:
+        if not _check_chat(message):
+            return
+        current = await state.get_state()
+        if current is None:
+            await message.answer("Nothing to cancel.")
+            return
+        await state.clear()
+        await message.answer("Cancelled.")
+
+    @router.callback_query(F.data.startswith("sn:o:"))
+    async def cb_ntf_select_op(callback: CallbackQuery, state: FSMContext) -> None:
+        op = callback.data.removeprefix("sn:o:")
+        await state.update_data(rule_operator=op)
+        await state.set_state(AddRuleStates.waiting_for_value)
+        if op in (">", "<", ">=", "<="):
+            prompt = "Enter threshold value (number, or /cancel):"
+        else:
+            prompt = "Enter value (number, on, off, etc. — or /cancel):"
+        await callback.message.edit_text(prompt)
+        await callback.answer()
+
+    @router.message(AddRuleStates.waiting_for_value)
+    async def fsm_rule_value(message: Message, state: FSMContext) -> None:
+        if not _check_chat(message):
+            return
+        data = await state.get_data()
+        value = message.text.strip()
+        op = data.get("rule_operator", "=")
+
+        # Validate: numeric operators require a float-parseable value
+        if op in (">", "<", ">=", "<="):
+            try:
+                float(value)
+            except ValueError:
+                await message.answer(f"Invalid number: '{value}'. Enter a numeric value:")
+                return
+
+        if not value:
+            await message.answer("Value cannot be empty. Try again:")
+            return
+
+        await state.update_data(rule_value=value)
+        await state.set_state(AddRuleStates.waiting_for_hold)
+        await message.answer("Hold time in minutes (0 = immediate, max 1440, or /cancel):")
+
+    @router.message(AddRuleStates.waiting_for_hold)
+    async def fsm_rule_hold(message: Message, state: FSMContext) -> None:
+        if not _check_chat(message):
+            return
+        text = message.text.strip()
+        try:
+            hold = int(text)
+        except ValueError:
+            await message.answer(f"Invalid number: '{text}'. Enter minutes (0-1440):")
+            return
+        if hold < 0 or hold > 1440:
+            await message.answer("Hold time must be 0-1440 minutes. Try again:")
+            return
+
+        data = await state.get_data()
+        entity_id = data["rule_entity_id"]
+        operator = data["rule_operator"]
+        value = data["rule_value"]
+
+        await storage.add_rule(entity_id, operator, value, hold_minutes=hold)
+        await state.clear()
+
+        hold_text = f", hold {hold}m" if hold > 0 else ""
+        await message.answer(f"Rule added: {operator} {value}{hold_text}")
+
+        # Show updated rules list
+        device = registry.get_device(entity_id)
+        room = device.room if device else "Unknown"
+        rules = await storage.get_rules_for_entity(entity_id)
+        name = device.name if device else entity_id
+        lines = [f"<b>{name}</b>", ""]
+        for i, r in enumerate(rules, 1):
+            h = f", hold {r['hold_minutes']}m" if r["hold_minutes"] > 0 else ""
+            lines.append(f"{i}. {r['operator']} {r['value']}{h}")
+        if not rules:
+            lines.append("No rules.")
+        await message.answer(
+            "\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=notification_rules_keyboard(rules, entity_id, room),
+        )
+
+    # ==================== Helpers ====================
+
+    async def _show_rules(callback: CallbackQuery, entity_id: str) -> None:
+        device = registry.get_device(entity_id)
+        room = device.room if device else "Unknown"
+        rules = await storage.get_rules_for_entity(entity_id)
+        name = device.name if device else entity_id
+        lines = [f"<b>{name}</b>", ""]
+        for i, r in enumerate(rules, 1):
+            h = f", hold {r['hold_minutes']}m" if r["hold_minutes"] > 0 else ""
+            lines.append(f"{i}. {r['operator']} {r['value']}{h}")
+        if not rules:
+            lines.append("No rules.")
+        await callback.message.edit_text(
+            "\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=notification_rules_keyboard(rules, entity_id, room),
+        )
 
     async def _handle_device_command(message: Message, name: str, state: str) -> None:
         matches = registry.find_devices(name)
