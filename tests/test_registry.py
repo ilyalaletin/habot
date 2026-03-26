@@ -110,3 +110,48 @@ async def test_find_devices_by_name_partial(registry: DeviceRegistry):
     results = registry.find_devices("light")
     assert len(results) == 1
     assert results[0].name == "Kitchen Light"
+
+
+@pytest.mark.asyncio
+async def test_get_devices_filters_hidden(ha_client, wb_devices, wb_publish):
+    reg = DeviceRegistry(ha_client, wb_devices, wb_publish=wb_publish, hidden={"ha:sensor.kitchen_temp"})
+    await reg.load()
+    devices = reg.get_devices("Kitchen")
+    assert len(devices) == 1
+    assert devices[0].name == "Kitchen Light"
+
+
+@pytest.mark.asyncio
+async def test_get_all_devices_includes_hidden(ha_client, wb_devices, wb_publish):
+    reg = DeviceRegistry(ha_client, wb_devices, wb_publish=wb_publish, hidden={"ha:sensor.kitchen_temp"})
+    await reg.load()
+    devices = reg.get_all_devices("Kitchen")
+    assert len(devices) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_rooms_excludes_fully_hidden(ha_client, wb_devices, wb_publish):
+    reg = DeviceRegistry(ha_client, wb_devices, wb_publish=wb_publish, hidden={"ha:light.kitchen", "ha:sensor.kitchen_temp"})
+    await reg.load()
+    rooms = reg.get_rooms()
+    assert "Kitchen" not in rooms
+    assert "Server" in rooms
+
+
+@pytest.mark.asyncio
+async def test_get_all_rooms_includes_fully_hidden(ha_client, wb_devices, wb_publish):
+    reg = DeviceRegistry(ha_client, wb_devices, wb_publish=wb_publish, hidden={"ha:light.kitchen", "ha:sensor.kitchen_temp"})
+    await reg.load()
+    rooms = reg.get_all_rooms()
+    assert "Kitchen" in rooms
+    assert "Server" in rooms
+
+
+@pytest.mark.asyncio
+async def test_set_hidden(registry: DeviceRegistry):
+    registry.set_hidden("ha:light.kitchen", True)
+    devices = registry.get_devices("Kitchen")
+    assert all(d.id != "ha:light.kitchen" for d in devices)
+    registry.set_hidden("ha:light.kitchen", False)
+    devices = registry.get_devices("Kitchen")
+    assert any(d.id == "ha:light.kitchen" for d in devices)

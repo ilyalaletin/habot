@@ -30,12 +30,13 @@ def _ha_state_to_service(entity_id: str, state: str) -> tuple[str, str, dict]:
 
 
 class DeviceRegistry:
-    def __init__(self, ha_client, wb_devices: list[Device], wb_publish=None) -> None:
+    def __init__(self, ha_client, wb_devices: list[Device], wb_publish=None, hidden: set[str] | None = None) -> None:
         self._ha_client = ha_client
         self._wb_devices = wb_devices
         self._wb_publish = wb_publish
         self._devices: dict[str, Device] = {}
         self._wb_topic_map: dict[str, str] = {}
+        self._hidden: set[str] = hidden or set()
 
     async def load(self) -> None:
         states = await self._ha_client.get_states()
@@ -81,10 +82,22 @@ class DeviceRegistry:
         logger.info("Registry loaded: %d HA devices, %d WB devices", len(self._devices) - len(self._wb_devices), len(self._wb_devices))
 
     def get_rooms(self) -> list[str]:
+        return sorted({d.room for d in self._devices.values() if d.id not in self._hidden})
+
+    def get_all_rooms(self) -> list[str]:
         return sorted({d.room for d in self._devices.values()})
 
     def get_devices(self, room: str) -> list[Device]:
+        return [d for d in self._devices.values() if d.room == room and d.id not in self._hidden]
+
+    def get_all_devices(self, room: str) -> list[Device]:
         return [d for d in self._devices.values() if d.room == room]
+
+    def set_hidden(self, entity_id: str, hidden: bool) -> None:
+        if hidden:
+            self._hidden.add(entity_id)
+        else:
+            self._hidden.discard(entity_id)
 
     def get_device(self, device_id: str) -> Device | None:
         return self._devices.get(device_id)
