@@ -101,9 +101,31 @@ mqtt:
   host: "wirenboard"
 ```
 
+## Получение токенов
+
+### Telegram Bot Token
+
+1. Откройте [@BotFather](https://t.me/BotFather) в Telegram
+2. Отправьте `/newbot`
+3. Задайте имя и username бота
+4. Скопируйте токен вида `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
+
+**Chat ID** — ID чата, в котором бот будет работать. Чтобы узнать:
+1. Добавьте бота в нужный групповой чат
+2. Отправьте любое сообщение в чат
+3. Откройте `https://api.telegram.org/bot<TOKEN>/getUpdates`
+4. Найдите `"chat":{"id":-100...}` — это ваш `chat_id`
+
+### Home Assistant Token
+
+1. Откройте Home Assistant → профиль пользователя (иконка внизу боковой панели)
+2. Прокрутите вниз до раздела **Долгосрочные токены доступа**
+3. Нажмите **Создать токен**, задайте имя (например, `habot`)
+4. Скопируйте токен — он показывается только один раз
+
 ## Конфигурация
 
-См. `config.example.yaml` для всех параметров. Переменные окружения `TELEGRAM_TOKEN` и `HA_TOKEN` переопределяют значения из YAML.
+См. `config.example.yaml` для всех параметров. Переменные окружения `TELEGRAM_TOKEN`, `HA_TOKEN` и `NOTIFICATION_DEDUP_MINUTES` переопределяют значения из YAML.
 
 ## Команды
 
