@@ -111,10 +111,11 @@ mqtt:
 4. Скопируйте токен вида `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
 
 **Chat ID** — ID чата, в котором бот будет работать. Чтобы узнать:
-1. Добавьте бота в нужный групповой чат
-2. Отправьте любое сообщение в чат
-3. Откройте `https://api.telegram.org/bot<TOKEN>/getUpdates`
-4. Найдите `"chat":{"id":-100...}` — это ваш `chat_id`
+1. Откройте [@BotFather](https://t.me/BotFather), отправьте `/mybots` → выберите бота → **Bot Settings** → **Group Privacy** → **Turn off**. Без этого бот не будет видеть сообщения в группах.
+2. Добавьте бота в нужный групповой чат
+3. Отправьте любое сообщение в чат
+4. Откройте `https://api.telegram.org/bot<TOKEN>/getUpdates`
+5. Найдите `"chat":{"id":-100...}` — это ваш `chat_id`
 
 ### Home Assistant Token
 
