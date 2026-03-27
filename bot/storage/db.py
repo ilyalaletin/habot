@@ -161,6 +161,15 @@ class Storage:
         )
         await self._db.commit()
 
+    async def get_last_notification(self, entity_id: str) -> str | None:
+        assert self._db
+        cursor = await self._db.execute(
+            "SELECT message FROM notification_history WHERE entity_id = ? ORDER BY id DESC LIMIT 1",
+            (entity_id,),
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else None
+
     async def get_known_entities(self) -> list[str]:
         assert self._db
         cursor = await self._db.execute(

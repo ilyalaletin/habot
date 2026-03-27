@@ -142,7 +142,7 @@ async def test_rule_does_not_refire(engine_deps):
 
 
 @pytest.mark.asyncio
-async def test_rule_refires_after_reset(engine_deps):
+async def test_rule_refires_after_reset_different_state(engine_deps):
     storage, registry, send_fn = engine_deps
     eng = NotificationEngine(storage, registry, send_fn)
     device = MagicMock()
@@ -152,9 +152,26 @@ async def test_rule_refires_after_reset(engine_deps):
     await storage.add_rule("ha:sensor.temp", ">", "35", hold_minutes=0)
     await eng.on_state_changed("ha:sensor.temp", "36")  # fires
     await eng.on_state_changed("ha:sensor.temp", "30")  # resets fired
-    await eng.on_state_changed("ha:sensor.temp", "37")  # fires again
+    await eng.on_state_changed("ha:sensor.temp", "37")  # fires again (different state text)
 
     assert send_fn.call_count == 2
+    await eng.stop()
+
+
+@pytest.mark.asyncio
+async def test_dedup_identical_notification(engine_deps):
+    storage, registry, send_fn = engine_deps
+    eng = NotificationEngine(storage, registry, send_fn)
+    device = MagicMock()
+    device.name = "Motion"
+    registry.get_device.return_value = device
+
+    await storage.add_rule("ha:sensor.motion", "=", "on", hold_minutes=0)
+    await eng.on_state_changed("ha:sensor.motion", "on")   # fires
+    await eng.on_state_changed("ha:sensor.motion", "off")   # resets fired
+    await eng.on_state_changed("ha:sensor.motion", "on")   # dedup: same text, skipped
+
+    assert send_fn.call_count == 1
     await eng.stop()
 
 

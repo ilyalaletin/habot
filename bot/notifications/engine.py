@@ -101,11 +101,20 @@ class NotificationEngine:
     async def _fire_rule(
         self, rule: dict, entity_id: str, state: str
     ) -> None:
-        await self._storage.set_rule_fired(rule["id"], True)
-        rule["fired"] = True
         device = self._registry.get_device(entity_id)
         name = device.name if device else entity_id
-        text = f"{name}: {state} ({rule['operator']} {rule['value']})"
+        text = f"🔔 {name}: {state} ({rule['operator']} {rule['value']})"
+
+        # Dedup: skip if last notification for this entity is identical
+        last = await self._storage.get_last_notification(entity_id)
+        if last == text:
+            logger.debug("Dedup: skipping identical notification for %s", entity_id)
+            await self._storage.set_rule_fired(rule["id"], True)
+            rule["fired"] = True
+            return
+
+        await self._storage.set_rule_fired(rule["id"], True)
+        rule["fired"] = True
         await self._storage.add_history(entity_id, text, rule_id=rule["id"])
         try:
             await self._send(text)
