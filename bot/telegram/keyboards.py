@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.devices.models import Device
+from bot.telegram.formatters import _short_name
 
 
 def rooms_keyboard(rooms: list[str]) -> InlineKeyboardMarkup:
@@ -77,23 +78,27 @@ def settings_devices_keyboard(
 
 
 def visibility_entities_keyboard(
-    entities: list[Device], hidden: set[str], room_idx: int, group_idx: int
+    entities: list[Device], hidden: set[str], room_idx: int, group_idx: int,
+    group_name: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for ei, d in enumerate(entities):
         mark = "⬜" if d.id in hidden else "✅"
-        builder.button(text=f"{mark} {d.name}", callback_data=f"sv:t:{room_idx}:{group_idx}:{ei}")
+        name = _short_name(d, group_name) if group_name else d.name
+        builder.button(text=f"{mark} {name}", callback_data=f"sv:t:{room_idx}:{group_idx}:{ei}")
     builder.adjust(1)
     builder.row(InlineKeyboardButton(text="◀️ Back", callback_data=f"sv:r:{room_idx}"))
     return builder.as_markup()
 
 
 def notification_entities_keyboard(
-    entities: list[Device], room_idx: int, group_idx: int
+    entities: list[Device], room_idx: int, group_idx: int,
+    group_name: str | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for ei, d in enumerate(entities):
-        builder.button(text=d.name, callback_data=f"sn:e:{room_idx}:{group_idx}:{ei}")
+        name = _short_name(d, group_name) if group_name else d.name
+        builder.button(text=name, callback_data=f"sn:e:{room_idx}:{group_idx}:{ei}")
     builder.adjust(1)
     builder.row(InlineKeyboardButton(text="◀️ Back", callback_data=f"sn:r:{room_idx}"))
     return builder.as_markup()

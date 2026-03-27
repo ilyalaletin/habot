@@ -340,7 +340,7 @@ def make_router(
         await _safe_edit(callback.message,
             f"<b>{group_name}</b>\nПереключить видимость:",
             parse_mode="HTML",
-            reply_markup=visibility_entities_keyboard(entities, hidden, ri, gi),
+            reply_markup=visibility_entities_keyboard(entities, hidden, ri, gi, group_name=group_name),
         )
         await callback.answer()
 
@@ -367,7 +367,7 @@ def make_router(
         await _safe_edit(callback.message,
             f"<b>{group_name}</b>\nПереключить видимость:",
             parse_mode="HTML",
-            reply_markup=visibility_entities_keyboard(entities, hidden_set, ri, gi),
+            reply_markup=visibility_entities_keyboard(entities, hidden_set, ri, gi, group_name=group_name),
         )
 
     # ==================== Notifications ====================
@@ -422,7 +422,7 @@ def make_router(
         await _safe_edit(callback.message,
             f"<b>{group_name}</b>\nВыберите сущность для правил:",
             parse_mode="HTML",
-            reply_markup=notification_entities_keyboard(visible, ri, gi),
+            reply_markup=notification_entities_keyboard(visible, ri, gi, group_name=group_name),
         )
         await callback.answer()
 
