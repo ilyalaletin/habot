@@ -35,6 +35,10 @@ class WirenboardConfig(BaseModel):
     devices: list[WBDevice] = []
 
 
+class NotificationsConfig(BaseModel):
+    dedup_minutes: int = 60
+
+
 class DatabaseConfig(BaseModel):
     path: str = "./data/habot.db"
     history_retention_days: int = 30
@@ -45,6 +49,7 @@ class AppConfig(BaseModel):
     homeassistant: HomeAssistantConfig
     mqtt: MqttConfig
     wirenboard: WirenboardConfig = WirenboardConfig()
+    notifications: NotificationsConfig = NotificationsConfig()
     database: DatabaseConfig = DatabaseConfig()
 
 
@@ -57,5 +62,7 @@ def load_config(path: Path) -> AppConfig:
         data.setdefault("telegram", {})["token"] = env_token
     if env_ha := os.environ.get("HA_TOKEN"):
         data.setdefault("homeassistant", {})["token"] = env_ha
+    if env_dedup := os.environ.get("NOTIFICATION_DEDUP_MINUTES"):
+        data.setdefault("notifications", {})["dedup_minutes"] = int(env_dedup)
 
     return AppConfig(**data)

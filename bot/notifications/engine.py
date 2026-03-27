@@ -36,10 +36,12 @@ class NotificationEngine:
         storage,
         registry,
         send_fn: Callable[[str], Awaitable[None]],
+        dedup_minutes: int = 60,
     ) -> None:
         self._storage = storage
         self._registry = registry
         self._send = send_fn
+        self._dedup_minutes = dedup_minutes
         self._hold_timers: dict[int, asyncio.Task] = {}
 
     async def start(self) -> None:
@@ -105,8 +107,8 @@ class NotificationEngine:
         name = device.name if device else entity_id
         text = f"🔔 {name}: {state} ({rule['operator']} {rule['value']})"
 
-        # Dedup: skip if last notification for this entity is identical
-        last = await self._storage.get_last_notification(entity_id)
+        # Dedup: skip if last notification for this entity within window is identical
+        last = await self._storage.get_last_notification(entity_id, within_minutes=self._dedup_minutes)
         if last == text:
             logger.debug("Dedup: skipping identical notification for %s", entity_id)
             await self._storage.set_rule_fired(rule["id"], True)

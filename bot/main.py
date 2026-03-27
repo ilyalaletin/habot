@@ -75,7 +75,10 @@ async def main() -> None:
     async def send_notification(text: str) -> None:
         await bot.send_message(config.telegram.chat_id, text)
 
-    engine = NotificationEngine(storage, registry, send_notification)
+    engine = NotificationEngine(
+        storage, registry, send_notification,
+        dedup_minutes=config.notifications.dedup_minutes,
+    )
 
     router = make_router(registry, storage, chat_id=config.telegram.chat_id, engine=engine)
     dp.include_router(router)

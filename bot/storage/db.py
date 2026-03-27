@@ -161,12 +161,20 @@ class Storage:
         )
         await self._db.commit()
 
-    async def get_last_notification(self, entity_id: str) -> str | None:
+    async def get_last_notification(self, entity_id: str, within_minutes: int = 0) -> str | None:
         assert self._db
-        cursor = await self._db.execute(
-            "SELECT message FROM notification_history WHERE entity_id = ? ORDER BY id DESC LIMIT 1",
-            (entity_id,),
-        )
+        if within_minutes > 0:
+            cursor = await self._db.execute(
+                "SELECT message FROM notification_history "
+                "WHERE entity_id = ? AND created_at > datetime('now', ?) "
+                "ORDER BY id DESC LIMIT 1",
+                (entity_id, f"-{within_minutes} minutes"),
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT message FROM notification_history WHERE entity_id = ? ORDER BY id DESC LIMIT 1",
+                (entity_id,),
+            )
         row = await cursor.fetchone()
         return row[0] if row else None
 

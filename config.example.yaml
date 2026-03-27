@@ -27,6 +27,9 @@ wirenboard:
       topic: "/devices/wb-msw-v3_1/controls/Temperature"
       unit: "C"
 
+notifications:
+  dedup_minutes: 60  # suppress identical notifications within this window (env: NOTIFICATION_DEDUP_MINUTES)
+
 database:
   path: "./data/habot.db"
   history_retention_days: 30
