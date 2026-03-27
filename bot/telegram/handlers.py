@@ -98,20 +98,9 @@ def make_router(
     async def cmd_status(message: Message) -> None:
         if not _check_chat(message):
             return
-        rooms = registry.get_rooms()
-        chunk = []
-        chunk_len = 0
-        for room in rooms:
-            groups = registry.get_device_groups(room)
-            part = format_room_summary(room, groups=groups)
-            if chunk and chunk_len + len(part) + 2 > 4000:
-                await message.answer("\n\n".join(chunk), parse_mode="HTML")
-                chunk = []
-                chunk_len = 0
-            chunk.append(part)
-            chunk_len += len(part) + 2
-        if chunk:
-            await message.answer("\n\n".join(chunk), parse_mode="HTML")
+        async def send(text):
+            await message.answer(text, parse_mode="HTML")
+        await _send_status(send)
 
     @router.message(Command("rules"))
     async def cmd_rules(message: Message) -> None:
@@ -267,20 +256,9 @@ def make_router(
             await _safe_edit(callback.message,"🏠 Комнаты:", reply_markup=rooms_keyboard(rooms))
         elif cmd == "status":
             await callback.message.delete()
-            rooms = registry.get_rooms()
-            chunk = []
-            chunk_len = 0
-            for room in rooms:
-                groups = registry.get_device_groups(room)
-                part = format_room_summary(room, groups=groups)
-                if chunk and chunk_len + len(part) + 2 > 4000:
-                    await callback.message.answer("\n\n".join(chunk), parse_mode="HTML")
-                    chunk = []
-                    chunk_len = 0
-                chunk.append(part)
-                chunk_len += len(part) + 2
-            if chunk:
-                await callback.message.answer("\n\n".join(chunk), parse_mode="HTML")
+            async def send(text):
+                await callback.message.answer(text, parse_mode="HTML")
+            await _send_status(send)
         elif cmd == "rules":
             await _show_all_rules(callback.message, edit=True)
         elif cmd == "settings":
@@ -601,6 +579,42 @@ def make_router(
             parse_mode="HTML",
             reply_markup=notification_rules_keyboard(rules, ri, gi, ei),
         )
+
+    async def _send_status(send_fn) -> None:
+        rooms = registry.get_rooms()
+        chunk = []
+        chunk_len = 0
+        for room in rooms:
+            groups = registry.get_device_groups(room)
+            part = format_room_summary(room, groups=groups)
+            # Split large room into smaller pieces if needed
+            if len(part) > 4000:
+                if chunk:
+                    await send_fn("\n\n".join(chunk))
+                    chunk = []
+                    chunk_len = 0
+                # Send room header + groups one by one
+                lines = part.split("\n\n")
+                sub_chunk = []
+                sub_len = 0
+                for line in lines:
+                    if sub_chunk and sub_len + len(line) + 2 > 4000:
+                        await send_fn("\n\n".join(sub_chunk))
+                        sub_chunk = []
+                        sub_len = 0
+                    sub_chunk.append(line)
+                    sub_len += len(line) + 2
+                if sub_chunk:
+                    await send_fn("\n\n".join(sub_chunk))
+                continue
+            if chunk and chunk_len + len(part) + 2 > 4000:
+                await send_fn("\n\n".join(chunk))
+                chunk = []
+                chunk_len = 0
+            chunk.append(part)
+            chunk_len += len(part) + 2
+        if chunk:
+            await send_fn("\n\n".join(chunk))
 
     async def _safe_edit(message, text: str, **kwargs) -> None:
         try:

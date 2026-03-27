@@ -41,6 +41,20 @@ def test_format_room_summary():
     assert "Temp" in text
     assert "23.5" in text
 
+def test_format_device_state_strips_group_name():
+    d = _sensor(name="WB-UPS v.3 71 Температура батареи", state="26.5", unit="°C")
+    text = format_device_state(d, group_name="WB-UPS v.3 71")
+    assert "WB-UPS v.3 71" not in text
+    assert "Температура батареи" in text
+    assert "26.5" in text
+
+
+def test_format_device_state_keeps_name_without_group():
+    d = _switch(name="Light", state="on")
+    text = format_device_state(d)
+    assert "Light" in text
+
+
 def test_format_room_summary_with_groups():
     groups = [
         ("dev1", "Climate Sensor", [_sensor(name="Temperature"), _sensor(name="Humidity", state="45", unit="%")]),
