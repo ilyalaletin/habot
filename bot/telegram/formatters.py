@@ -25,7 +25,12 @@ def format_device_state(device: Device, group_name: str | None = None) -> str:
     name = _short_name(device, group_name) if group_name else device.name
     if device.type == "sensor":
         unit = f" {device.unit}" if device.unit else ""
-        return f"📊 {name} — {device.state}{unit}"
+        state = device.state
+        if state == "on":
+            state = "вкл"
+        elif state == "off":
+            state = "выкл"
+        return f"📊 {name} — {state}{unit}"
     elif device.type == "dimmer":
         if device.state == "off":
             return f"🔴 {name} — выкл"
